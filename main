@@ -1,0 +1,204 @@
+#!/bin/bash
+#SBATCH -p RM
+#SBATCH -t 01-00:00:00
+#SBATCH -e cool_Pipeline.%j.err
+#SBATCH -o cool_Pipeline.%j.log
+
+# Default general parameters
+DEF_CPU=`grep -c ^processor /proc/cpuinfo`
+DEF_CPU=`expr $DEF_CPU - 2`
+DEF_MEMORY=`awk '/MemTotal/ {print $2}' /proc/meminfo`
+DEF_MEMORY=`expr $DEF_MEMORY / 1024 / 1024 / 2`
+DEF_MEMORY+="G"
+DEF_OUTPUT_DIR="output"
+
+# String literals
+VERSION_TEXT="Version: 1.0.0"
+HELP_TEXT="Usage: ./main --left <read_1_fastqc> --right <read_2_fastqc> [-fa <Human_reference_genome.fa>|-fai <Human_reference_genome.idx> --gtf <Human_reference_genome.gtf> -a|--alignment <alignment.bam> -q|--query <eval> --get-req] 
+	Required:
+	-l | --left	       Left-end raw read file in fastq format
+	-r | --right           Right-end raw read file in fastq format
+	
+	Optional:
+	-v | --version         Software Version
+	-h | --help            Help Menu
+	-fa| -fai              Human reference transcriptome in fasta format/Index
+        --gtf                  Human reference genome in gtf format
+	-a | --alignment       Alignment file in bam format
+	-q | --query           Use if you want to query the database with the output peaks, followed by e-val threshold
+	--get-req              Load recommended requirements
+"
+
+if [ "$#" -eq  "0" ]
+   then
+     echo "$HELP_TEXT"
+     exit 1
+fi
+
+# Initialize Variables
+DIR=$(pwd)
+START=0
+GENOME="/dev/null"
+IS_GENOME=false
+IS_REQ=false
+IS_ALIGNMENT=false
+IS_GTF=false
+IS_QUERY=false
+EVAL=0.01
+ALIGNMENT="alignment.bam"
+ALIGNMENT_BAI="alignment.bam.bai"
+GENOME_INDEX="/dev/null"
+GENOME_GTF="/dev/null"
+FASTQ1_FQ="/dev/null"
+FASTQ2_FQ="/dev/null"
+FASTQ1="/dev/null"
+FASTQ2="/dev/null"
+FASTQ1_TRIMMED="/dev/null"
+FASTQ2_TRIMEMD="/dev/null"
+
+
+# Parse options
+OPTS=`getopt -o vhl:r:g:c:o: --long version,help,left:,right:,fa:,fai:,gtf:,alignment:,get-req,query:,cpu:,max-memory: -n 'parse-options' -- "$@"`
+
+if [ $? != 0 ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
+
+eval set -- "$OPTS"
+
+VERSION=false
+HELP=false
+
+while true; do
+  case "$1" in
+    -v | --version ) VERSION=true; shift ;;
+    -h | --help )    HELP=true; shift ;;
+    -l | --left ) FASTQ1_FQ="$2";shift;shift;;
+    -r | --right ) FASTQ2_FQ="$2";shift;shift;;
+    --fa ) GENOME="$2";IS_GENOME=true;shift;shift;;
+    --fai ) GENOME_INDEX="$2";shift;shift;;
+    --gtf ) IS_GTF=true;GENOME_GTF="$2";shift;shift;;
+    -a | --alignment ) IS_ALIGNMENT=true;ALIGNMENT="$2";ALIGNMENT_BAI="${ALIGNMENT}.bai";START=1;shift;shift;;
+    -q | --query ) IS_QUERY=true;EVAL="$2";shift;shift;;
+    --get-req ) IS_REQ=true;shift;;
+    --cpu ) DEF_CPU="$2"; shift; shift ;;
+    --max-memory ) DEF_MEMORY="$2"; shift; shift ;;
+    -- ) shift; break ;;
+    * ) break ;;
+  esac
+done
+
+# Display error messages
+if [ $VERSION == true ]; then
+  echo "$VERSION_TEXT"
+  exit 1
+fi
+
+if [ $HELP == true ]; then
+  echo "$HELP_TEXT"
+  exit 1
+fi
+
+#Load Requirements 
+if [ $IS_REQ == true ]; then
+   source requirements
+fi
+
+
+FASTQ1=`echo "$FASTQ1_FQ" | cut -d'.' -f1`
+FASTQ2=`echo "$FASTQ2_FQ" | cut -d'.' -f1`
+
+#Running FastQC
+if [ $START == 0 ]; then
+echo "1: Running FastQC on raw reads"
+if [ ! -d FastqcOutput ]; then
+   mkdir FastqcOutput
+fi
+
+fastqc $FASTQ1_FQ $FASTQ2_FQ -o FastqcOutput/
+echo 
+
+
+#Running first round of Cutadapt
+echo "2: Running first round of CutAdapt"
+if [ ! -d CutadaptOutput ]; then
+   mkdir CutadaptOutput
+fi
+
+cutadapt -f fastq --match-read-wildcards  --times 1  -e 0.1  -O 1  --quality-cutoff 6  -m 18  -a NNNNNAGATCGGAAGAGCACACGTCTGAACTCCAGTCAC  -g CTTCCGATCTACAAGTT -g CTTCCGATCTTGGTCCT  -a AACTTGTAGATCGGA -a AGGACCAAGATCGGA -a ACTTGTAGATCGGAA -a GGACCAAGATCGGAA -a CTTGTAGATCGGAAG -a GACCAAGATCGGAAG -a TTGTAGATCGGAAGA -a ACCAAGATCGGAAGA -a TGTAGATCGGAAGAG -a CCAAGATCGGAAGAG -a GTAGATCGGAAGAGC -a CAAGATCGGAAGAGC -a TAGATCGGAAGAGCG -a AAGATCGGAAGAGCG -a AGATCGGAAGAGCGT -a GATCGGAAGAGCGTC -a ATCGGAAGAGCGTCG -a TCGGAAGAGCGTCGT -a CGGAAGAGCGTCGTG -a GGAAGAGCGTCGTGT  -o CutadaptOutput/${FASTQ1}_trimmed.fastq  -p CutadaptOutput/${FASTQ2}_trimmed.fastq $FASTQ1_FQ $FASTQ2_FQ > CutadaptOutput/adapterTrim.metrics
+echo
+
+
+#Running second round of Cutadapt
+echo "3: Running second round of CutAdapt" 
+cutadapt -f fastq --match-read-wildcards --times 1 -e 0.1 -O 5 --quality-cutoff 6 -m 18 -a AACTTGTAGATCGGA -a AGGACCAAGATCGGA -a ACTTGTAGATCGGAA -a GGACCAAGATCGGAA -a CTTGTAGATCGGAAG -a GACCAAGATCGGAAG -a TTGTAGATCGGAAGA -a ACCAAGATCGGAAGA -a TGTAGATCGGAAGAG -a CCAAGATCGGAAGAG -a GTAGATCGGAAGAGC -a CAAGATCGGAAGAGC -a TAGATCGGAAGAGCG -a AAGATCGGAAGAGCG -a AGATCGGAAGAGCGT -a GATCGGAAGAGCGTC -a ATCGGAAGAGCGTCG -a TCGGAAGAGCGTCGT -a CGGAAGAGCGTCGTG -a GGAAGAGCGTCGTGT -o CutadaptOutput/${FASTQ1}_trimmed_round2.fastq -p CutadaptOutput/${FASTQ2}_trimmed_round2.fastq CutadaptOutput/${FASTQ1}_trimmed.fastq CutadaptOutput/${FASTQ2}_trimmed.fastq> CutadaptOutput/adapterTrim.round2.metrics 
+echo
+
+
+FASTQ1_TRIMMED=${FASTQ1}_trimmed_round2.fastq
+FASTQ2_TRIMMED=${FASTQ2}_trimmed_round2.fastq
+
+
+#Running STAR alignment
+if [ ! -d STAROutput ]; then
+   mkdir STAROutput
+   mkdir STAROutput/hg38_index
+   mkdir STAROutput/alignment
+fi
+
+
+if [ $IS_GENOME == true ]; then
+   STAR --runThreadN 12 --runMode genomeGenerate --genomeDir STAROutput/hg38_index --genomeFastaFiles ${GENOME} --sjdbGTFfile ${GENOME_GTF} --sjdbOverhang 43   
+   GENOME_INDEX=hg38_index
+fi
+
+echo "4: Running STAR alignment"
+if [ $IS_ALIGNMENT == false ]; then
+ STAR --runMode alignReads --runThreadN 16 --genomeDir STAROutput/${GENOME_INDEX} --genomeLoad NoSharedMemory --readFilesIn CutadaptOutput/${FASTQ1_TRIMMED} CutadaptOutput/${FASTQ2_TRIMMED} --outFilterMultimapNmax 1 --outFilterMultimapScoreRange 1 --outFileNamePrefix STAROutput/alignment --outSAMattributes All --outStd BAM_SortedByCoordinate --outSAMtype BAM SortedByCoordinate --outFilterType BySJout --outReadsUnmapped Fastx --outFilterScoreMin 10 --outSAMattrRGline ID:foo --alignEndsType EndToEnd > STAROutput/${ALIGNMENT}
+fi
+echo
+fi
+
+
+echo "5: Running Samtools to generate index"
+if [ $START == 1 ]; then
+if [ $IS_ALIGNMENT == false ]; then
+ cd STAROutput
+fi
+samtools index -b ${ALIGNMENT} ${ALIGNMENT_BAI}
+cd $DIR
+echo
+
+echo "6: Running PureCLIP"
+if [ ! -d PureCLIPOutput ]; then
+	mkdir PureCLIPOutput
+fi
+
+source activate pureclip-env
+
+if [ $IS_ALIGNMENT == false ]; then
+ pureclip -i STAROutput/${ALIGNMENT} -bai STAROutput/${ALIGNMENT_BAI} -g ${GENOME} -iv 'chr1;chr2;chr3;' -nt 10 -o PureCLIPOutput/PureCLIP.crosslink_sites.bed
+else
+ pureclip -i ${ALIGNMENT} -bai ${ALIGNMENT_BAI} -g ${GENOME} -iv 'chr1;chr2;chr3;' -nt 10 -o PureCLIPOutput/PureCLIP.crosslink_sites.bed
+fi
+
+if [ $IS_REQ == true ]; then
+ source deactivate
+fi
+echo 
+
+
+echo "7: Running Bedtools"
+if [ ! -d BedtoolsOutput ]; then
+	mkdir BedtoolsOutput
+fi
+
+bedtools getfasta -fo BedtoolsOutput/peaks.fa -fi ${GENOME} -bed PureCLIPOutput/PureCLIP.crosslink_sites.bed
+
+echo
+fi
+
+if [ $IS_BLAST == true ]; then
+   echo "8: Running BLAST"
+   blastn -db allRBPs -query BedtoolsOutput/peaks.fa -out Query_Results.txt -evalue ${EVAL}
+fi
+
+echo Done! 

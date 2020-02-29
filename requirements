@@ -1,0 +1,41 @@
+#!/bin/bash
+#SBATCH -p RM
+#SBATCH -C EGRESS
+#SBATCH -t 03:00:00
+#SBATCH -e requirements.%j.err
+#SBATCH -o requirements.%j.log
+
+
+module load fastqc/0.11.3
+
+module load cutadapt/1.5
+
+module load staraligner/2.7.0e
+
+module load anaconda/4.0
+
+conda create -n pureclip-env --clone root
+
+source activate pureclip-env
+conda config --add channels defaults
+conda config --add channels bioconda
+conda config --add channels conda-forge
+
+conda remove conda
+conda remove conda-build
+conda remove conda-env
+conda install pureclip
+pureclip
+source deactivate
+
+module load samtools/1.7
+
+wget https://github.com/arq5x/bedtools2/releases/download/v2.29.2/bedtools.static.binary
+mv bedtools.static.binary bedtools
+chmod a+x bedtools
+export PATH=$PATH:$(pwd)
+source PATH
+
+module load blast/2.2.31
+
+echo "COOOL!!"

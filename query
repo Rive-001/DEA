@@ -1,0 +1,10 @@
+#!/bin/bash
+#SBATCH -p RM
+#SBATCH -t 03:00:00
+#SBATCH -N 1
+#SBATCH -e query.%j.err
+#SBATCH -o query.%j.log
+
+
+module load blast/2.2.31
+blastn -db allRBPs -query "$1" -out "$3" -evalue "$2" && echo COOL!
