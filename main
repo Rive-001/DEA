@@ -159,7 +159,6 @@ fi
 
 
 echo "5: Running Samtools to generate index"
-if [ $START == 1 ]; then
 if [ $IS_ALIGNMENT == false ]; then
  cd STAROutput
 fi
@@ -194,7 +193,6 @@ fi
 bedtools getfasta -fo BedtoolsOutput/peaks.fa -fi ${GENOME} -bed PureCLIPOutput/PureCLIP.crosslink_sites.bed
 
 echo
-fi
 
 if [ $IS_BLAST == true ]; then
    echo "8: Running BLAST"
