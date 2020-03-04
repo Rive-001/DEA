@@ -157,7 +157,7 @@ fi
 echo
 fi
 
-
+#Running Samtools
 echo "5: Running Samtools to generate index"
 if [ $IS_ALIGNMENT == false ]; then
  cd STAROutput
@@ -166,6 +166,7 @@ samtools index -b ${ALIGNMENT} ${ALIGNMENT_BAI}
 cd $DIR
 echo
 
+#Running PureCLIP
 echo "6: Running PureCLIP"
 if [ ! -d PureCLIPOutput ]; then
 	mkdir PureCLIPOutput
@@ -184,7 +185,7 @@ if [ $IS_REQ == true ]; then
 fi
 echo 
 
-
+#Running Bedtools
 echo "7: Running Bedtools"
 if [ ! -d BedtoolsOutput ]; then
 	mkdir BedtoolsOutput
@@ -194,6 +195,7 @@ bedtools getfasta -fo BedtoolsOutput/peaks.fa -fi ${GENOME} -bed PureCLIPOutput/
 
 echo
 
+#Running BLAST
 if [ $IS_BLAST == true ]; then
    echo "8: Running BLAST"
    blastn -db allRBPs -query BedtoolsOutput/peaks.fa -out Query_Results.txt -evalue ${EVAL}
