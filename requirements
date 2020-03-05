@@ -33,8 +33,6 @@ module load samtools/1.7
 wget https://github.com/arq5x/bedtools2/releases/download/v2.29.2/bedtools.static.binary
 mv bedtools.static.binary bedtools
 chmod a+x bedtools
-export PATH=$PATH:$(pwd)
-source PATH
 
 module load blast/2.2.31
 
