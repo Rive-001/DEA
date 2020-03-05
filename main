@@ -175,9 +175,9 @@ fi
 source activate pureclip-env
 
 if [ $IS_ALIGNMENT == false ]; then
- pureclip -i STAROutput/${ALIGNMENT} -bai STAROutput/${ALIGNMENT_BAI} -g ${GENOME} -iv 'chr1;chr2;chr3;' -nt 10 -o PureCLIPOutput/PureCLIP.crosslink_sites.bed
+ pureclip -i STAROutput/${ALIGNMENT} -bai STAROutput/${ALIGNMENT_BAI} -g ${GENOME} -iv 'chr1;chr2;chr3;' -nt 10 -or PureCLIPOutput/PureCLIP.binding_regions.bed -o PureCLIPOutput/PureCLIP.crosslink_sites.bed
 else
- pureclip -i ${ALIGNMENT} -bai ${ALIGNMENT_BAI} -g ${GENOME} -iv 'chr1;chr2;chr3;' -nt 10 -o PureCLIPOutput/PureCLIP.crosslink_sites.bed
+ pureclip -i ${ALIGNMENT} -bai ${ALIGNMENT_BAI} -g ${GENOME} -iv 'chr1;chr2;chr3;' -nt 10 -or PureCLIPOutput/PureCLIP.binding_regions.bed -o PureCLIPOutput/PureCLIP.crosslink_sites.bed
 fi
 
 if [ $IS_REQ == true ]; then
@@ -191,7 +191,7 @@ if [ ! -d BedtoolsOutput ]; then
 	mkdir BedtoolsOutput
 fi
 
-bedtools getfasta -fo BedtoolsOutput/peaks.fa -fi ${GENOME} -bed PureCLIPOutput/PureCLIP.crosslink_sites.bed
+bedtools getfasta -fo BedtoolsOutput/peaks.fa -fi ${GENOME} -bed PureCLIPOutput/PureCLIP.binding_regions.bed
 
 echo
 
