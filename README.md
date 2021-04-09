@@ -9,6 +9,9 @@
 
 ## Pipeline
 
+<div align="center"><img src="https://github.com/Rive-001/DEA/blob/master/DEA_pipeline.png" width="600" height="400"></div>
+<div align="center">DEA pipeline</div>
+
 The pipeline takes the fastq files from [ENCODE](https://www.encodeproject.org/eclip/) and the human hg38 reference genome from the [Ensembl genome browser](https://useast.ensembl.org/index.html). It uses [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) to check the quality of the fastq files. Then it uses [Cutadapt](https://cutadapt.readthedocs.io/en/stable/) to remove adapters from the reads. It then aligns the trimmed reads against the reference genome using [STAR](https://github.com/alexdobin/STAR) aligner. The bam files from the aligner are indexed using [Samtools](http://www.htslib.org/) before being fed to [PureCLIP](https://github.com/skrakau/PureCLIP) for peak-calling. [Bedtools](https://bedtools.readthedocs.io/en/latest/) is used to extract raw sequences from this output. The output is stored in a BLAST database, which allows us to [BLAST](https://blast.ncbi.nlm.nih.gov/Blast.cgi) a sequence against this database of sequences.
 
 A detailed user manual for this API can be found [here](https://docs.google.com/document/d/1oN8uVp0X6dJDNgbZuuwEoN9pRx6a43hob3GOVItfcQU/edit?usp=sharing)
@@ -16,3 +19,10 @@ A detailed user manual for this API can be found [here](https://docs.google.com/
 ## Summary
 
 We developed a pipeline that could extract mRNA sequences bound by RBP from the reads data available at ENCODE. The API for this pipeline could be used by end-users to extract sequences from their experiments and compare it against the sequences available within ENCODE.
+
+## Team
+
+* [Rishi Verma](https://github.com/Rive-001)
+*  Neel Mittal
+*  Yuying Biyan
+*  Zhiyun Gong
